@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title><%= title %></title>
+	<script src="/javascripts/jquery-1.12.3.min.js"></script>
+	<style>
+		*{margin:0;padding:0;}
+		ul,ol{list-style:none;}
+		a{text-decoration:none;}
+		.listbox{width:400px;background:#6699CC;}
+		.listbox ul{padding:6px;}
+		.listbox li{display:block;height:24px;line-height:24px;background:#99CCFF;
+			margin-bottom:2px;}
+		.listbox li div{float:right;}
+		#taglist li p{float:left;margin-left:10px;font-size:18px;}
+		#taglist li b{float:left;margin-left:10px;font-size:12px;color:rgba(0,0,0,0.3);display:none;}
+		#taglist li div a{display:block;float:left;width:24px;
+			text-align:center;}
+		#taglist li div input{display:block;float:left;width:26px;height:18px;text-align:center;margin:2px 0;border-width:1px;border-color:rgb(204, 204, 204);}
+
+		#newtag div a{float:left;margin-right:10px;display:none;}
+		#add_btn{float:left;margin-left:10px;display:block;}
+		#add_text{height:18px;float:left;margin:2px 0;border-width:1px;
+			border-color:rgb(204, 204, 204);margin-left:10px;display:none;}
+	</style>
+	<script>
+		//显示/隐藏新建标签按钮
+		function AddComponentsToggle(){
+			$("#add_btn").toggle();
+			$("#add_text").toggle();
+			$("#add_confirm").toggle();
+			$("#add_reset").toggle();
+		}
+		//保存本地缓存
+		function saveStorage(){
+			if(window.localStorage){
+				var storage = window.localStorage;
+				var aTagName = [];
+				var aTagCount= [];
+				if($("#taglist li").length){
+					//标签列表存在 保存进数组
+					$("#taglist li").each(function(index){
+						var _tagName = "";
+						var _tagCount = 0;
+						_tagName = $(this).find("p").html();
+						_tagCount = parseInt($(this).find("input").val());
+						aTagName.push(_tagName);
+						aTagCount.push(_tagCount);
+					});
+				}
+				//保存本地缓存
+				storage.setItem("TagName" ,aTagName.toString());
+				storage.setItem("TagCount",aTagCount.toString());
+			}
+		}
+		//加载本地缓存
+		function loadStorage(){
+			if(window.localStorage){
+				var storage = window.localStorage;
+				var aTagName = [];
+				var aTagCount= [];
+				aTagName = storage.TagName ? storage.TagName.split(',') : [];
+				aTagCount= storage.TagCount ?storage.TagCount.split(',') : [];
+				//alert("aTagName="+aTagName+"\n"+"aTagCount="+aTagCount);
+				if(aTagName.length){
+					for (var i = 0; i < aTagName.length; i++) {
+						addNewTag(aTagName[i],aTagCount[i]);
+					};
+				}
+				if(document.aExistentTag){
+					document.aExistentTag = aTagName;
+				}else{
+					document.aExistentTag = [];
+				}
+			}
+		}
+		//增加一个标签
+		function addNewTag(name,value){
+			if(!name) return false;
+			if(!value || value==0) value = 1; 
+			if($.inArray(name,document.aExistentTag)!=-1) return false;
+			//创建DOM元素并插入表中
+			$div1=$("<div></div>");
+			$div1.append("<a href='javascript:void(0);' class='minus'>-</a>");
+			$div1.append("<input type='text' value='"+value+"' class='tagcount'>");
+			$div1.append("<a class='plus' href='javascript:void(0);'>+</a>");
+			$newLi=$("<li></li>");
+			$newLi.append("<p class='tagname'>"+name+"</p>");
+			$newLi.append("<b class='delete'>删除</b>");
+			$newLi.append($div1);
+			//如果当前列表为空
+			if($("#taglist li").length==0){
+				//alert("Taglist is empty");
+				$newLi.appendTo($("#taglist"));
+			}
+			//如果当前列表不为空
+			else{
+				$newLi.insertAfter($("#taglist li:last"));
+			}
+			//添加加减号动作
+			$("#taglist li:last a:eq(0)").click(function(){
+				//alert("Minus");
+				var _input = $(this).parent().find("input");
+				var count =parseInt(_input.val());
+				count = (count<=1) ? 1 : count-1;
+				_input.val(count);
+				saveStorage();
+			});
+			$("#taglist li:last a:eq(1)").click(function(){
+				//alert("Plus");
+				var _input = $(this).parent().find("input");
+				var count = parseInt(_input.val())+1;
+				_input.val(count);
+				saveStorage();
+			});
+			//当鼠标进入li显示 删除 按钮
+			$("#taglist li:last").on("mouseover",function(){
+				$(this).find("b").show();
+				$(this).find("b").on("mouseover",function(){
+					$(this).css("cursor","pointer");
+					$(this).show();
+				});
+			});
+			//给 删除 按钮添加点击事件 删除所在li
+			$("#taglist li:last b").on("click", function(){
+				_this = $(this);
+				delTag(_this);
+			});
+			//鼠标离开li时 删除 按钮消失
+			$("#taglist li:last").on("mouseout",function(){
+				$(this).find("b").hide();
+			});
+			//定义输入框有效值
+			$("#taglist li:last input").data("ligValue",1);
+			//监视输入框内容变化 如果有效则存入有效值
+			$("#taglist li:last input").on("focus input propertychange",function(){
+				//如果变化后值有效则存入有效值
+				if(!isNaN(parseInt($(this).val())) && parseInt($(this).val())!=0){
+					//
+					$(this).data("ligValue",parseInt($(this).val()));
+					saveStorage();
+				}
+			});
+				
+			//输入框失去焦点时 将有效值写入输入框
+			$("#taglist li:last input").blur(function(){
+				$(this).val($(this).data("ligValue"));
+			});
+		}
+		//删除一个标签
+		function delTag(obj){
+			var _tagName = $(obj).parent("li").find("p").html();
+			$(obj).parent("li").remove();
+			saveStorage();
+		}
+		$(document).ready(function(){
+			//初始化既存标签数列
+			document.aExistentTag = [];
+			//读取localStorage
+			loadStorage();
+			//点击 新建标签 按钮
+			$("#add_btn").click(function(){
+				AddComponentsToggle();
+
+			});
+			//点击 确认
+			$("#add_confirm").click(function(){
+				var newTagName = $("#add_text").val();
+				if(!newTagName){
+					alert("请输入标签的内容");
+				}else{
+					addNewTag(newTagName);
+					saveStorage();
+					$("#add_text").val("");
+					AddComponentsToggle();
+				}
+			});
+			//点击 取消
+			$("#add_reset").click(function(){
+				$("#add_text").val("");
+				AddComponentsToggle();
+			});
+			//文本框绑定回车事件
+			$("#add_text").keypress(function(event){
+				if(event.which==13){
+					var newTagName = $("#add_text").val();
+					if(!newTagName){
+						alert("请输入标签的内容");
+					}else{
+						addNewTag(newTagName);
+						saveStorage();
+						$("#add_text").val("");
+						AddComponentsToggle();
+					}
+				}
+			});
+			$("h1").click(function(event) {
+				//saveStorage();
+				alert(window.localStorage.TagName);
+				alert(window.localStorage.TagCount);
+			});
+		});
+	</script>
+</head>
+<body>
+	<h1>职业技能标签统计</h1>
+	<div class="listbox">
+		<ul id="taglist">
+		</ul>
+		<ul id="newtag">
+			<li>
+				<a href="javascript:void(0);" id="add_btn">新建标签</a>
+				<input id="add_text" type="text" placeholder="请输入新的标签" value="">
+				<div>
+					<a href="javascript:void(0);" id="add_confirm">确认</a>
+					<a href="javascript:void(0);" id="add_reset">取消</a>
+				</div>
+			</li>
+		</ul>
+	</div>
+</body>
+</html>
